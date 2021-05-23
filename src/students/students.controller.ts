@@ -1,42 +1,64 @@
 import {
   Controller,
   Get,
-  Post,
-  Body,
-  Patch,
-  Param,
-  Delete,
+  HttpService,
+  HttpStatus,
+  Query,
+  Res,
 } from '@nestjs/common';
+import { Response } from 'express';
 import { StudentsService } from './students.service';
-import { CreateStudentDto } from './dto/create-student.dto';
-import { UpdateStudentDto } from './dto/update-student.dto';
 
-@Controller('students')
+@Controller('api/v1')
 export class StudentsController {
-  constructor(private readonly studentsService: StudentsService) {}
+  constructor(
+    private readonly studentsService: StudentsService,
+    private httpService: HttpService,
+  ) {}
 
-  @Post()
-  create(@Body() createStudentDto: CreateStudentDto) {
-    return this.studentsService.create(createStudentDto);
+  @Get('/student/info')
+  getInfo(@Query('mail') mail: string, @Res() response: Response) {
+    const headersRequest = {
+      Authorization: 'Basic cHJvamVjdG9mZmljZTpxOTBoNWp1NA==',
+    };
+    this.httpService
+      .get('http://api.sync.ictis.sfedu.ru/find/student/email', {
+        params: {
+          email: mail,
+        },
+        headers: headersRequest,
+      })
+      .subscribe(
+        (information) => response.status(HttpStatus.OK).json(information.data),
+        (err) => response.status(HttpStatus.BAD_REQUEST).json(err),
+      );
   }
 
-  @Get()
-  findAll() {
-    return this.studentsService.findAll();
+  @Get('schedule')
+  getSchedule(@Query('payload') data: string, @Res() response: Response) {
+    this.httpService
+      .get('http://ictis.sfedu.ru/schedule-api/', {
+        params: { query: data },
+      })
+      .subscribe(
+        (res) => response.status(HttpStatus.OK).json(res.data),
+        (err) => response.status(HttpStatus.BAD_REQUEST).json(err),
+      );
   }
 
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.studentsService.findOne(+id);
-  }
-
-  @Patch(':id')
-  update(@Param('id') id: string, @Body() updateStudentDto: UpdateStudentDto) {
-    return this.studentsService.update(+id, updateStudentDto);
-  }
-
-  @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.studentsService.remove(+id);
+  @Get('schedule/:id')
+  getCurrentSchedule(@Query('payload') data: string, @Res() response: Response) {
+    const deserializeData = JSON.parse(data);
+    this.httpService
+      .get('http://ictis.sfedu.ru/schedule-api/', {
+        params: {
+          group: deserializeData.group,
+          week: deserializeData.page,
+        },
+      })
+      .subscribe(
+        (res) => response.status(HttpStatus.OK).json(res.data),
+        (err) => response.status(HttpStatus.BAD_REQUEST).json(err),
+      );
   }
 }

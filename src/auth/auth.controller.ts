@@ -4,18 +4,14 @@ import {
   Get,
   Post,
   Body,
-  Patch,
-  Param,
-  Delete,
   Res,
   Query,
   Req,
   HttpStatus,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
-import { CreateAuthDto } from './dto/create-auth.dto';
-import { UpdateAuthDto } from './dto/update-auth.dto';
 import { Request, Response } from 'express';
+import { ICredential } from './interfaces';
 
 @Controller('api/v1')
 export class AuthController {
@@ -73,7 +69,7 @@ export class AuthController {
   @Post('/auth/azure-oauth2/user')
   getUser(
     @Req() request: Request,
-    @Body() credential: any,
+    @Body() credential: ICredential,
     @Res() response: Response,
   ) {
     const headersRequest = {
@@ -85,25 +81,5 @@ export class AuthController {
         (tokens) => response.status(HttpStatus.OK).json(tokens.data),
         (err) => response.status(HttpStatus.BAD_REQUEST).json(err),
       );
-  }
-
-  @Get()
-  findAll() {
-    return this.authService.findAll();
-  }
-
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.authService.findOne(+id);
-  }
-
-  @Patch(':id')
-  update(@Param('id') id: string, @Body() updateAuthDto: UpdateAuthDto) {
-    return this.authService.update(+id, updateAuthDto);
-  }
-
-  @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.authService.remove(+id);
   }
 }
