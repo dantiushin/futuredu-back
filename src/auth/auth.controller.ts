@@ -1,25 +1,34 @@
 import {
   Controller,
+  HttpService,
   Get,
   Post,
   Body,
   Patch,
   Param,
   Delete,
-  Req,
   Res,
+  Query,
+  Req,
+  HttpStatus,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { CreateAuthDto } from './dto/create-auth.dto';
 import { UpdateAuthDto } from './dto/update-auth.dto';
-import { Response } from 'express';
+import { Request, Response } from 'express';
 
-@Controller('api')
+@Controller('api/v1')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private httpService: HttpService,
+  ) {}
 
   @Get('/oauth2/authorization/azure')
-  redirectToAzure(@Param('login_hint') login_hint: string, @Res() response: Response) {
+  redirectToAzure(
+    @Query('login_hint') login_hint: string,
+    @Res() response: Response,
+  ) {
     return response.redirect(
       `https://login.microsoftonline.com/${process.env.TENANT_ID}/oauth2/v2.0/authorize` +
         `?client_id=${process.env.CLIENT_ID}` +
@@ -32,9 +41,50 @@ export class AuthController {
     );
   }
 
-  @Post()
-  create(@Body() createAuthDto: CreateAuthDto) {
-    return this.authService.create(createAuthDto);
+  @Post('/auth/azure-oauth2/tokens')
+  getTokens(
+    @Req() request: Request,
+    @Body('code') code: string,
+    @Res() response: Response,
+  ) {
+    const data = decodeURIComponent(
+      `client_id=${process.env.CLIENT_ID}` +
+        `&scope=https://graph.microsoft.com/user.read` +
+        `&redirect_uri=http://localhost:3000` +
+        `&grant_type=authorization_code` +
+        `&client_secret=${process.env.CLIENT_SECRETS_VALUE}` +
+        `&code=${code}`,
+    );
+    const headersRequest = {
+      'Content-Type': 'application/x-www-form-urlencoded',
+    };
+    this.httpService
+      .post(
+        `https://login.microsoftonline.com/${process.env.TENANT_ID}/oauth2/v2.0/token`,
+        data,
+        { headers: headersRequest },
+      )
+      .subscribe(
+        (tokens) => response.status(HttpStatus.OK).json(tokens.data),
+        (err) => response.status(HttpStatus.BAD_REQUEST).json(err),
+      );
+  }
+
+  @Post('/auth/azure-oauth2/user')
+  getUser(
+    @Req() request: Request,
+    @Body() credential: any,
+    @Res() response: Response,
+  ) {
+    const headersRequest = {
+      Authorization: `Bearer ${credential.access_token}`,
+    };
+    this.httpService
+      .get(`https://graph.microsoft.com/v1.0/me/`, { headers: headersRequest })
+      .subscribe(
+        (tokens) => response.status(HttpStatus.OK).json(tokens.data),
+        (err) => response.status(HttpStatus.BAD_REQUEST).json(err),
+      );
   }
 
   @Get()
